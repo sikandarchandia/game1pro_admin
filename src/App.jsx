@@ -1,11 +1,10 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import Sidebar from "./components/Sidebar";
 import Dashboard from "./pages/Dashboard";
 import Withdraw from "./pages/Withdraw";
 import UsersData from "./pages/UsersData";
 import Settings from "./pages/Settings";
-import './App.css'
 import Login from "./pages/Login";
 import Logout from "./pages/Logout";
 import ActiveUsers from "./pages/Activeusers";
@@ -14,30 +13,117 @@ import Agents from "./pages/Agents";
 import AgentsPurchasedData from "./pages/AgentsPurchasedData";
 import AddCoinAgent from "./pages/AddCoinAgent";
 import RemoveCoin from "./pages/RemoveCoin";
+import ProtectedRoute from "./components/ProtectedRoute"; // use .jsx
+import "./App.css";
 
 const App = () => {
   return (
-    <Router>
-      <div className="withdraw-layout">
-        <Sidebar />
-        <div className="withdraw-content">
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/withdraw" element={<Withdraw />} />
-            <Route path="/users" element={<UsersData />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/logout" element={<Logout />} />
-            <Route path="/agents" element={<Agents />} />
-            <Route path="/addcoin" element={<AddCoinAgent />} />
-            <Route path="/removecoin" element={<RemoveCoin />} />
-            <Route path="/agentpayments" element={<AgentsPurchasedData />} />
-            <Route path="/activeusers" element={<ActiveUsers />} />
-            <Route path="/blockusers" element={<BlockUsers />} />
-          </Routes>
-        </div>
+    <div className="withdraw-layout">
+      <Sidebar />
+      <div className="withdraw-content">
+        <Routes>
+          {/* Public route */}
+          <Route path="/login" element={<Login />} />
+
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/withdraw"
+            element={
+              <ProtectedRoute>
+                <Withdraw />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/users"
+            element={
+              <ProtectedRoute>
+                <UsersData />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <Settings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/logout"
+            element={
+              <ProtectedRoute>
+                <Logout />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/agents"
+            element={
+              <ProtectedRoute>
+                <Agents />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/addcoin"
+            element={
+              <ProtectedRoute>
+                <AddCoinAgent />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/removecoin"
+            element={
+              <ProtectedRoute>
+                <RemoveCoin />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/agentpayments"
+            element={
+              <ProtectedRoute>
+                <AgentsPurchasedData />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/activeusers"
+            element={
+              <ProtectedRoute>
+                <ActiveUsers />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/blockusers"
+            element={
+              <ProtectedRoute>
+                <BlockUsers />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
       </div>
-    </Router>
+    </div>
   );
 };
 

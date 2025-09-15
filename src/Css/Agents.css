@@ -381,3 +381,6 @@
   .modal-overlay { padding-top: 40px; }
   .modal { padding: 16px; border-radius: 10px; }
 }
+.agents-table thead{
+  background-color: black;
+}

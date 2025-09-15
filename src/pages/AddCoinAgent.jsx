@@ -1,58 +1,133 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "../Css/AddCoinAgent.css";
-
-const mockAgents = {
-  "101": { id: "101", name: "John Doe" },
-  "102": { id: "102", name: "Jane Smith" },
-  "103": { id: "103", name: "Ali Khan" },
-};
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const AddCoinAgent = () => {
-  const [agentId, setAgentId] = useState("");
-  const [agentInfo, setAgentInfo] = useState(null);
+  const [userNumber, setUserNumber] = useState("");
+  const [userInfo, setUserInfo] = useState(null);
   const [coinAmount, setCoinAmount] = useState("");
   const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  const handleIdChange = (e) => {
-    const id = e.target.value;
-    setAgentId(id);
-    setAgentInfo(mockAgents[id] || null);
+  // ✅ Load all coin addition history on mount
+  useEffect(() => {
+    fetchHistory();
+  }, []);
+
+  // ✅ Fetch user info by userNumber
+  const fetchUser = async () => {
+    if (!userNumber) {
+      toast.error("Please enter a user number");
+      return;
+    }
+
+    const userNum = Number(userNumber);
+    if (isNaN(userNum)) {
+      toast.error("Invalid user number");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/agents/search/${userNum}`);
+      const data = await res.json();
+
+      if (data.success) {
+        setUserInfo(data.user);
+      } else {
+        setUserInfo(null);
+        toast.error(data.message || "User not found");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Server error");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSubmit = (e) => {
+  // ✅ Fetch all coin addition history
+  const fetchHistory = async () => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/agents/history-all`);
+      const data = await res.json();
+      if (data.success) setRecords(data.history);
+      else setRecords([]);
+    } catch (err) {
+      console.error(err);
+      setRecords([]);
+    }
+  };
+
+  // ✅ Add coins to the selected user
+  const handleAddCoins = async (e) => {
     e.preventDefault();
-    if (!agentInfo || !coinAmount) return;
+    if (!userInfo || !coinAmount) {
+      toast.error("Please select a user and enter coin amount");
+      return;
+    }
 
-    const newRecord = {
-      id: agentInfo.id,
-      name: agentInfo.name,
-      coins: coinAmount,
-      date: new Date().toLocaleString(),
-    };
+    const amountNum = Number(coinAmount);
+    if (isNaN(amountNum) || amountNum <= 0) {
+      toast.error("Invalid coin amount");
+      return;
+    }
 
-    setRecords([newRecord, ...records]);
-    setAgentId("");
-    setAgentInfo(null);
-    setCoinAmount("");
+    setLoading(true);
+    try {
+      const res = await fetch("http://localhost:5000/api/add-coins", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userNumber: Number(userInfo.userNumber),
+          amount: amountNum,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        toast.success(`Added ${amountNum} coins to ${data.user.username}`);
+        setUserInfo({ ...userInfo, coins: data.user.coins });
+        setUserNumber("");
+        setCoinAmount("");
+        fetchHistory(); // refresh history
+      } else {
+        toast.error(data.message || "Failed to add coins");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Server error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="addcoin-container">
-      <h2 className="page-title">Add Coins to Agent</h2>
-
-      {/* Form */}
-      <form className="addcoin-form" onSubmit={handleSubmit}>
+      <h2>Admin Panel - Add Coins</h2>
+      <form className="addcoin-form" onSubmit={handleAddCoins}>
         <div className="form-group">
-          <label>Agent ID</label>
+          <label>User Number</label>
           <input
             type="text"
-            value={agentId}
-            onChange={handleIdChange}
-            placeholder="Enter Agent ID"
+            value={userNumber}
+            onChange={(e) => setUserNumber(e.target.value)}
+            placeholder="Enter user number"
           />
-          {agentInfo && (
-            <div className="agent-preview">
-              <strong>{agentInfo.name}</strong> (ID: {agentInfo.id})
+          <button
+            className="coinbutton"
+            type="button"
+            onClick={fetchUser}
+            disabled={loading}
+          >
+            {loading ? "Loading..." : "Fetch User"}
+          </button>
+
+          {userInfo && (
+            <div className="user-preview">
+              <strong>{userInfo.username}</strong> (Coins: {userInfo.coins})
             </div>
           )}
         </div>
@@ -63,47 +138,52 @@ const AddCoinAgent = () => {
             type="number"
             value={coinAmount}
             onChange={(e) => setCoinAmount(e.target.value)}
-            placeholder="Enter coins to send"
+            placeholder="Enter coins to add"
           />
         </div>
 
-        <button type="submit" className="submit-btn">
-          Send & Confirm
+        <button
+          type="submit"
+          className="coinbutton"
+          disabled={loading || !userInfo || !coinAmount}
+        >
+          {loading ? "Processing..." : "Add & Confirm"}
         </button>
       </form>
 
-      {/* Table */}
       <div className="table-wrapper">
-        <h3 className="table-title">Coin Transactions</h3>
-        <table className="records-table">
+        <h3>Transaction History (All Users)</h3>
+        <table>
           <thead>
             <tr>
-              <th>Agent ID</th>
-              <th>Agent Name</th>
-              <th>Coin Amount</th>
+              <th>User Number</th>
+              <th>Username</th>
+              <th>Coins Added</th>
               <th>Date</th>
             </tr>
           </thead>
           <tbody>
             {records.length === 0 ? (
               <tr>
-                <td colSpan="4" className="no-data">
-                  No records found
+                <td colSpan="4" className="no-records">
+                  No transactions yet
                 </td>
               </tr>
             ) : (
-              records.map((rec, index) => (
-                <tr key={index}>
-                  <td>{rec.id}</td>
-                  <td>{rec.name}</td>
-                  <td>{rec.coins}</td>
-                  <td>{rec.date}</td>
+              records.map((rec, idx) => (
+                <tr key={idx}>
+                  <td data-label="User Number">{rec.userNumber}</td>
+                  <td data-label="Username">{rec.username}</td>
+                  <td data-label="Coins Added">{rec.coinsAdded}</td>
+                  <td data-label="Date">{new Date(rec.createdAt).toLocaleString()}</td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
       </div>
+
+      <ToastContainer position="top-right" autoClose={3000} />
     </div>
   );
 };

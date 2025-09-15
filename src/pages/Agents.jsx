@@ -1,60 +1,118 @@
+// Agents.jsx
 import React, { useState, useEffect } from "react";
 import "../Css/Agents.css";
-
-const sampleAccounts = [
-  { id: "1001", name: "John Doe", payment: 2500, coins: 500 },
-  { id: "1002", name: "Alice Smith", payment: 1800, coins: 320 },
-  { id: "1003", name: "Michael Brown", payment: 4000, coins: 950 },
-  { id: "1004", name: "Emma Wilson", payment: 1200, coins: 200 },
-  { id: "1005", name: "David Johnson", payment: 3000, coins: 700 },
-];
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const Agents = () => {
   const [agents, setAgents] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [accountId, setAccountId] = useState("");
+  const [userNumber, setUserNumber] = useState("");
   const [accountDetails, setAccountDetails] = useState(null);
+  const [loading, setLoading] = useState(false);
 
+  // ✅ Fetch all agents on load
   useEffect(() => {
-    // Preload dummy agents with random status
-    const initialAgents = sampleAccounts.slice(0, 3).map((agent) => ({
-      ...agent,
-      status: Math.random() > 0.5 ? "Active" : "Blocked",
-    }));
-    setAgents(initialAgents);
+    fetch("http://localhost:5000/api/agents")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) setAgents(data.agents || []);
+      })
+      .catch((err) => console.error("Error fetching agents:", err));
   }, []);
 
-  // Fetch account details by ID
-  const handleFetchAccount = () => {
-    const found = sampleAccounts.find((acc) => acc.id === accountId);
-    if (found) {
-      setAccountDetails(found);
-    } else {
-      setAccountDetails(null);
-      alert("Account not found!");
+  // ✅ Fetch account details by userNumber
+  const handleFetchAccount = async () => {
+    if (!userNumber) {
+      toast.error("Please enter a user number");
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `http://localhost:5000/api/agents/search/${userNumber}`
+      );
+      const data = await res.json();
+      if (data.success) {
+        setAccountDetails(data.user);
+      } else {
+        setAccountDetails(null);
+        toast.error(data.message || "User not found");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Server error");
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Add agent
-  const handleAddAgent = () => {
+  // ✅ Make user → agent
+  const handleMakeAgent = async () => {
     if (!accountDetails) return;
 
-    const newAgent = {
-      ...accountDetails,
-      status: "Active",
-    };
+    try {
+      const res = await fetch(
+        `http://localhost:5000/api/agents/${accountDetails._id}/make`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role: "agent" }),
+        }
+      );
 
-    setAgents((prev) => [...prev, newAgent]);
-    setIsModalOpen(false);
-    setAccountId("");
-    setAccountDetails(null);
+      const data = await res.json();
+      if (data.success) {
+        setAgents((prev) => {
+          const exists = prev.find((a) => a._id === data.user._id);
+          if (exists) {
+            return prev.map((a) => (a._id === data.user._id ? data.user : a));
+          } else {
+            return [...prev, data.user];
+          }
+        });
+        setIsModalOpen(false);
+        setUserNumber("");
+        setAccountDetails(null);
+        toast.success("User made agent successfully");
+      } else {
+        toast.error(data.message || "Failed to make agent");
+      }
+    } catch (error) {
+      console.error("Error making agent:", error);
+      toast.error("Server error");
+    }
+  };
+
+  // ✅ Toggle role user <-> agent
+  const toggleRole = async (id, currentRole) => {
+    const newRole = currentRole === "agent" ? "user" : "agent";
+
+    try {
+      const res = await fetch(`http://localhost:5000/api/agents/${id}/make`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: newRole }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAgents((prev) =>
+          prev.map((a) => (a._id === id ? { ...a, role: data.user.role } : a))
+        );
+        toast.success(`Role updated to ${newRole}`);
+      } else {
+        toast.error(data.message || "Failed to update role");
+      }
+    } catch (error) {
+      console.error("Error toggling role:", error);
+      toast.error("Server error");
+    }
   };
 
   return (
     <div className="agents-container">
       <h1 className="agents-title">Agents Data</h1>
 
-      {/* Add Agent Button */}
       <button className="add-agent-btn" onClick={() => setIsModalOpen(true)}>
         + Add Agent
       </button>
@@ -64,29 +122,38 @@ const Agents = () => {
         <table className="agents-table">
           <thead>
             <tr>
-              <th>Agent ID</th>
+              <th>User Number</th>
               <th>Name</th>
-              <th>Total Payment ($)</th>
               <th>Coins</th>
-              <th>Status</th>
+              <th>Role</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
-            {agents.map((agent, index) => (
-              <tr key={index}>
-                <td>{agent.id}</td>
-                <td>{agent.name}</td>
-                <td>${agent.payment.toLocaleString()}</td>
-                <td>{agent.coins}</td>
-                <td>
-                  {agent.status === "Active" ? (
-                    <button className="status-btn active">Active</button>
-                  ) : (
-                    <button className="status-btn blocked">Blocked</button>
-                  )}
+            {agents.length === 0 ? (
+              <tr>
+                <td colSpan="5" className="no-data">
+                  No agents found
                 </td>
               </tr>
-            ))}
+            ) : (
+              agents.map((agent) => (
+                <tr key={agent._id}>
+                  <td>{agent.userNumber}</td>
+                  <td>{agent.username}</td>
+                  <td>{agent.coins}</td>
+                  <td>{agent.role}</td>
+                  <td>
+                    <button
+                      className="status-btn"
+                      onClick={() => toggleRole(agent._id, agent.role)}
+                    >
+                      {agent.role === "agent" ? "Remove Agent" : "Make Agent"}
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -97,33 +164,49 @@ const Agents = () => {
           <div className="modal">
             <h2>Add New Agent</h2>
 
-            <label>Enter Account ID:</label>
+            <label>Enter User Number:</label>
             <input
               type="text"
-              value={accountId}
-              onChange={(e) => setAccountId(e.target.value)}
-              placeholder="e.g. 1002"
+              value={userNumber}
+              onChange={(e) => setUserNumber(e.target.value)}
+              placeholder="e.g. 84395188"
             />
-            <button onClick={handleFetchAccount} className="make-agent-btn">Fetch Account</button>
+            <button
+              className="make-agent-btn"
+              onClick={handleFetchAccount}
+              disabled={loading}
+            >
+              {loading ? "Loading..." : "Fetch Account"}
+            </button>
 
-            {/* Show fetched details */}
             {accountDetails && (
               <div className="account-preview">
-                <p><strong>Name:</strong> {accountDetails.name}</p>
-                <p><strong>Payment:</strong> ${accountDetails.payment}</p>
-                <p><strong>Coins:</strong> {accountDetails.coins}</p>
-                <button className="make-agent-btn" onClick={handleAddAgent}>
+                <p>
+                  <strong>Name:</strong> {accountDetails.username}
+                </p>
+                <p>
+                  <strong>User Number:</strong> {accountDetails.userNumber}
+                </p>
+                <p>
+                  <strong>Coins:</strong> {accountDetails.coins}
+                </p>
+                <button className="make-agent-btn" onClick={handleMakeAgent}>
                   ✅ Make Agent
                 </button>
               </div>
             )}
 
-            <button className="close-btn" onClick={() => setIsModalOpen(false)}>
+            <button
+              className="close-btn"
+              onClick={() => setIsModalOpen(false)}
+            >
               Close
             </button>
           </div>
         </div>
       )}
+
+      <ToastContainer position="top-right" autoClose={3000} />
     </div>
   );
 };

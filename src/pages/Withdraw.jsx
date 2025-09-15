@@ -2,25 +2,47 @@ import React, { useEffect, useState } from "react";
 import "../Css/Withdraw.css";
 
 const Withdraw = () => {
-  const [requests, setRequests] = useState([]);
+  const [withdrawals, setWithdrawals] = useState([]);
   const [search, setSearch] = useState("");
 
+  const fetchWithdrawals = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("http://localhost:5000/api/admin/withdrawals", {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setWithdrawals(data.withdrawals);
+      } else {
+        console.error(data.message);
+      }
+    } catch (err) {
+      console.error("Error fetching withdrawals:", err);
+    }
+  };
+
   useEffect(() => {
-    fetch("https://jsonplaceholder.typicode.com/posts") // replace with your API
-      .then((res) => res.json())
-      .then((data) => setRequests(data.slice(0, 10))) // take first 10 requests
-      .catch((err) => console.error("Error fetching withdraw requests:", err));
+    fetchWithdrawals();
   }, []);
 
-  const filteredRequests = requests.filter((req) =>
-    req.title.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredWithdrawals = withdrawals.filter((w) => {
+    const searchLower = search.toLowerCase();
+    return (
+      w.username.toLowerCase().includes(searchLower) ||
+      w.accountNumber.includes(searchLower) ||
+      w.userNumber.toString().includes(searchLower)
+    );
+  });
 
   return (
     <div className="withdraw-container">
       <h1 className="withdraw-title">Withdraw Requests</h1>
 
-      {/* Search Bar */}
       <input
         type="text"
         placeholder="Search request..."
@@ -29,39 +51,45 @@ const Withdraw = () => {
         onChange={(e) => setSearch(e.target.value)}
       />
 
-      {/* Table */}
       <div className="table-wrapper">
         <table className="withdraw-table">
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Request</th>
+              <th>User ID</th>
+              <th>Username</th>
+              <th>Bank</th>
               <th>Account No</th>
-              <th>Account Name</th>
-              <th>Bank Name</th>
+              <th>Account Holder</th>
+              <th>Country</th>
+              <th>Amount</th>
               <th>Date</th>
               <th>Status</th>
             </tr>
           </thead>
           <tbody>
-            {filteredRequests.length > 0 ? (
-              filteredRequests.map((req) => (
-                <tr key={req.id}>
-                  <td>{req.id}</td>
-                  <td>{req.id}</td>
-                  <td>{req.id}</td>
-                  <td>{req.id}</td>
-                  <td>{req.id}</td>
-                  <td>{req.id}</td>
+            {filteredWithdrawals.length > 0 ? (
+              filteredWithdrawals.map((w) => (
+                <tr key={w._id}>
+                  <td>{w.userNumber}</td>
+                  <td>{w.username}</td>
+                  <td>{w.bank}</td>
+                  <td>{w.accountNumber}</td>
+                  <td>{w.accountHolder}</td>
+                  <td>{w.country}</td>
+                  <td>{w.amount}</td>
+                  <td>{new Date(w.createdAt).toLocaleString()}</td>
                   <td>
-                    <button className="blocked-btn">Pending 🚫</button>
-                    <button className="active-btn">Approve ✅</button>
+                    {w.status === "Processing" ? (
+                      <button className="blocked-btn">Processing ⏳</button>
+                    ) : (
+                      <button className="active-btn">Completed ✅</button>
+                    )}
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan="2" className="no-data">
+                <td colSpan="9" className="no-data">
                   No withdraw requests found
                 </td>
               </tr>

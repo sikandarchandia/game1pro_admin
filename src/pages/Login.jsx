@@ -1,21 +1,41 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "../Css/Login.css";
+import { toast } from "react-toastify";
+import { useLoginAdminMutation } from "../api/adminAuthApi";
 
 const Login = () => {
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
 
-  const handleLogin = (e) => {
-    e.preventDefault();
+const [loginAdmin, { isLoading }] = useLoginAdminMutation();
 
-    // Just a dummy check for now
-    if (username === "admin" && password === "1234") {
-      localStorage.setItem("auth", true);
-      navigate("/");
-    } else {
-      alert("Invalid credentials");
+  // ✅ Redirect to dashboard if already logged in
+  useEffect(() => {
+    const auth = localStorage.getItem("auth");
+    if (auth) {
+      navigate("/dashboard");
+    }
+  }, [navigate]);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await loginAdmin({ email, password }).unwrap();
+
+      if (response.success) {
+        localStorage.setItem("auth", true);
+        localStorage.setItem("adminId", response.admin._id); // store adminId
+        toast.success("Login successful 🎉");
+        navigate("/dashboard");
+      }
+    } catch (err) {
+      if (err?.data?.message) {
+        toast.error(err.data.message);
+      } else {
+        toast.error("Login failed, please try again.");
+      }
     }
   };
 
@@ -25,12 +45,12 @@ const Login = () => {
         <h1 className="login-title">🔐 Admin Login</h1>
         <form onSubmit={handleLogin}>
           <div className="form-group">
-            <label>Username</label>
+            <label>Email</label>
             <input
-              type="text"
-              placeholder="Enter username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              type="email"
+              placeholder="Enter email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
             />
           </div>
@@ -44,8 +64,8 @@ const Login = () => {
               required
             />
           </div>
-          <button type="submit" className="login-btn">
-            Login
+          <button type="submit" className="login-btn" disabled={isLoading}>
+            {isLoading ? "Logging in..." : "Login"}
           </button>
         </form>
       </div>
@@ -54,3 +74,4 @@ const Login = () => {
 };
 
 export default Login;
+ 

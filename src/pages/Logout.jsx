@@ -4,10 +4,12 @@ import { useNavigate } from "react-router-dom";
 const Logout = () => {
   const navigate = useNavigate();
 
-  useEffect(() => {
-    localStorage.removeItem("auth"); // clear session
-    navigate("/login");
-  }, [navigate]);
+useEffect(() => {
+  localStorage.removeItem("auth");
+  localStorage.removeItem("adminId"); // ✅ clear id too
+  navigate("/login");
+}, [navigate]);
+
 
   return <h2>Logging out...</h2>;
 };

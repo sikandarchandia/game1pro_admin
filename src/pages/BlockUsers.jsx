@@ -1,32 +1,62 @@
 import React, { useEffect, useState } from "react";
-import "../Css/UsersData.css"; // Reuse same CSS
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { FaRegCopy } from "react-icons/fa";
+import "../Css/UsersData.css";
 
 const BlockUsers = () => {
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    fetch("https://jsonplaceholder.typicode.com/users") // replace with real API
+    fetch("http://localhost:5000/api/admin/users")
       .then((res) => res.json())
       .then((data) => {
-        // Example: simulate blocked users (odd IDs)
-        const blockedUsers = data.filter((u) => u.id % 2 !== 0);
+        const blockedUsers = (data.users || []).filter(
+          (u) => u.status === "block"
+        );
         setUsers(blockedUsers);
       })
       .catch((err) => console.error("Error fetching blocked users:", err));
   }, []);
 
+  const copyToClipboard = (text, label) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copied!`, { autoClose: 1500 });
+  };
+
+  // ✅ Change status
+  const changeStatus = async (id, newStatus) => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/admin/users/${id}/status`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`User status changed to ${newStatus}`);
+        setUsers((prev) => prev.filter((u) => u._id !== id)); // ✅ remove from blocked list
+      } else {
+        toast.error("Failed to update status");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Server error");
+    }
+  };
+
   const filteredUsers = users.filter(
     (user) =>
-      user.name.toLowerCase().includes(search.toLowerCase()) ||
-      user.email.toLowerCase().includes(search.toLowerCase())
+      user.userNumber?.toString().includes(search) ||
+      user.email?.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
     <div className="users-container">
       <h1 className="users-title">Blocked Users</h1>
 
-      {/* Search Bar */}
       <input
         type="text"
         placeholder="🔍 Search blocked users..."
@@ -35,40 +65,58 @@ const BlockUsers = () => {
         className="search-bar"
       />
 
-      {/* Users Table */}
       <div className="table-wrapper">
         <table className="users-table">
           <thead>
             <tr>
               <th>ID</th>
-              <th>Name</th>
+              <th>User Number</th>
               <th>Email</th>
-              <th>Phone</th>
-              <th>Company</th>
               <th>Coins</th>
-              <th>Withdraws</th>
-              <th>Status</th>
+              <th>Withdraw Count</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
             {filteredUsers.length > 0 ? (
-              filteredUsers.map((user) => (
-                <tr key={user.id}>
-                  <td>{user.id}</td>
-                  <td>{user.name}</td>
-                  <td>{user.email}</td>
-                  <td>{user.phone}</td>
-                  <td>{user.company?.name}</td>
-                  <td>{user.id * 5}</td>
-                  <td>{user.id}</td>
-                  <td>
-                    <button className="blocked-btn">Block 🚫</button>
-                  </td>
-                </tr>
-              ))
+              filteredUsers.map((user) => {
+                const shortId = user._id.slice(0, 3) + "..." + user._id.slice(-3);
+                const shortUserNumber =
+                  user.userNumber?.toString().slice(0, 2) + "...";
+
+                return (
+                  <tr key={user._id}>
+                    <td>
+                      {shortId}{" "}
+                      <FaRegCopy
+                        className="copy-icon"
+                        onClick={() => copyToClipboard(user._id, "User ID")}
+                      />
+                    </td>
+                    <td>
+                      {shortUserNumber}{" "}
+                      <FaRegCopy
+                        className="copy-icon"
+                        onClick={() => copyToClipboard(user.userNumber, "User Number")}
+                      />
+                    </td>
+                    <td>{user.email}</td>
+                    <td>{user.coins || 0}</td>
+                    <td>{user.withdrawals?.length || 0}</td>
+                    <td>
+                      <button
+                        className="active-btn"
+                        onClick={() => changeStatus(user._id, "active")}
+                      >
+                        Activate now ✅
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
             ) : (
               <tr>
-                <td colSpan="8" className="no-data">
+                <td colSpan="6" className="no-data">
                   No blocked users found.
                 </td>
               </tr>
@@ -76,6 +124,8 @@ const BlockUsers = () => {
           </tbody>
         </table>
       </div>
+
+      <ToastContainer position="top-right" />
     </div>
   );
 };

@@ -78,3 +78,7 @@
   font-size: 16px;
   color: #888;
 }
+.withdraw-table tbody{
+  background-color: white;
+  color: black;
+}
